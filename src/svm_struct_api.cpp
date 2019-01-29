@@ -84,10 +84,7 @@ SAMPLE      read_struct_examples(char *file, STRUCT_LEARN_PARM *sparm) {
         PATTERN x;
         LABEL y;
         read_instance_multilabel(line, x, y);
-        examples[num].x.val = x.val;
-        examples[num].x.idx = x.idx;
-        examples[num].x.col_num = x.col_num;
-        examples[num].x.row_num = x.row_num;
+        examples[num].x.pword = x.pword;
         examples[num].y.y = y.y;
         num++;
     }
@@ -97,22 +94,26 @@ SAMPLE      read_struct_examples(char *file, STRUCT_LEARN_PARM *sparm) {
     return (sample);
 }
 
-void  read_instance_multilabel(char *line, PATTERN &x, LABEL &y)
-{
+void  read_instance_multilabel(char *line, PATTERN &x, LABEL &y) {
     long pos = 0;
-
-    while (line[pos] != ' ') y.y.push_back(read_label(line, pos));
+    vector<int> label;
+    while (line[pos] != ' ') label.push_back(read_label(line, pos));
     while (line[pos] == ' ') pos++;
 
-    x.col_num = 0;
-    x.row_num = 1;
+    y.y = new int[label.size()+1];
+    std::copy(label.begin(), label.end(), y.y);
+    y.y[label.size()] = -1;
+
+    PWORD *word = new PWORD[1];
+    word->col_num = 0;
+    word->row_num = 1;
     vector<double> val;
-    while(line[pos] !='\r' && line[pos] && line[pos]!= '\n'){
-        x.idx.push_back(read_num<int>(line, pos));
-        val.push_back(read_num<double>(line, pos));
-        x.col_num += 1;
+    while (line[pos] != '\r' && line[pos] && line[pos] != '\n') {
+        word->idx.push_back(read_num<int>(line, pos));
+        word->val.push_back(read_num<double>(line, pos));
+        word->col_num += 1;
     }
-    x.val.push_back(val);
+    x.pword = word;
 }
 
 int read_label (char *line, long &pos) {
@@ -139,8 +140,8 @@ void        init_struct_model(SAMPLE sample, STRUCTMODEL *sm,
   EXAMPLE *example = sample.examples;
   int n = sample.n;
     for (int i = 0; i < n; i++) {
-        vector<int> y = example[i].y.y;
-        for (int j = 0; j < y.size(); j++) {
+        int *y = example[i].y.y;
+        for(int j =0; y[j] != -1; j++) {
             if (y[j] > maxlabel)
                 maxlabel = y[j];
         }
@@ -150,7 +151,7 @@ void        init_struct_model(SAMPLE sample, STRUCTMODEL *sm,
     int totwords = 0;
     for (long i = 0; i < sample.n; i++) {
         PATTERN x = sample.examples[i].x;
-        int idx = x.idx[x.col_num - 1];
+        int idx = x.pword->idx[x.pword->col_num - 1];
         if (totwords < idx)
             totwords = idx;
     }
@@ -217,7 +218,9 @@ LABEL       classify_struct_example(PATTERN x, STRUCTMODEL *model,
             first = 0;
         }
     }
-    y.y = bestlabel;
+    y.y = new int[bestlabel.size()+1];
+    std::copy(bestlabel.begin(), bestlabel.end(), y.y);
+    y.y[bestlabel.size()] = -1;
     return y;
 }
 
@@ -283,33 +286,44 @@ LABEL       find_most_violated_constraint_marginrescaling(PATTERN x, LABEL y,
        Psi(x,ybar)>Psi(x,y)-1. If the function cannot find a label, it
        shall return an empty label as recognized by the function
        empty_label(y). */
-    LABEL most_vio;
-    most_vio.y.push_back(0);
+    vector<int> most_vio;
 
     int num_labels = model->num_multilabel;
     double bestscore = -1000;
     double score;
     bitset<32> bitvec;
     int first = 1;
+    LABEL pred;
+    int *labels;
     for (int label = 1; label <= (1 << num_labels) - 1; label++) {
         bitvec = label;
-        LABEL ybar;
-        b2v(bitvec, ybar.y, num_labels);
+        vector<int> ybar;
+        b2v(bitvec, ybar, num_labels);
+
+        labels = new int[ybar.size()+1];
+        std::copy(ybar.begin(), ybar.end(), labels);
+        labels[ybar.size()] = -1;
+        pred.y = labels;
+
         DOC doc;
-        doc.fvec = psi(x, ybar, model, sparm);
+        doc.fvec = psi(x, pred, model, sparm);
         score = classify_example(model->svm_model, &doc);
         free_svector(doc.fvec);
-        score += loss(y, ybar, sparm);
+        score += loss(y, pred, sparm);
+
+        delete[] labels;
         if ((bestscore < score) || (first)) {
             bestscore = score;
-            most_vio.y = ybar.y;
+            most_vio = ybar;
             first = 0;
         }
     }
 
     /* insert your code for computing the label ybar here */
-
-    return (most_vio);
+    pred.y = new int[most_vio.size()+1];
+    std::copy(most_vio.begin(), most_vio.end(), pred.y);
+    pred.y[most_vio.size()] = -1;
+    return (pred);
 }
 
 int         empty_label(LABEL y)
@@ -318,7 +332,8 @@ int         empty_label(LABEL y)
      returned by find_most_violated_constraint_???(x, y, sm) if there
      is no incorrect label that can be found for x, or if it is unable
      to label x at all */
-  return(y.y.size() < 1);
+
+  return(y.y[0] == -1);
 }
 
 SVECTOR     *psi(PATTERN x, LABEL L, STRUCTMODEL *model,
@@ -344,23 +359,26 @@ SVECTOR     *psi(PATTERN x, LABEL L, STRUCTMODEL *model,
        inner vector product) and the appropriate function of the
        loss + margin/slack rescaling method. See that paper for details. */
     SVECTOR *fvec = new SVECTOR[1];
-    vector<int> y = L.y;
-    int num_label = y.size();
-    long len = x.col_num;
+    int num_label = 0;
+    for(int i = 0; L.y[i] != -1; i++) num_label++;
+    vector<int> y(L.y, L.y+num_label);
+
+    long len = x.pword->col_num;
     fvec->words = new WORD[len * num_label + 1];
 
     WORD *words = fvec->words;
     for (int i = 0; i < num_label; i++) {
         int shift = y[i] * (model->num_features);
         for (int j = 0; j < len; j++) {
-            words[i*len+j].wnum = x.idx[j] +shift;
-            words[i*len+j].weight = x.val[0][j];
+            words[i*len+j].wnum = x.pword->idx[j] +shift;
+            words[i*len+j].weight = x.pword->val[j];
         }
     }
     words[len*num_label].wnum = 0;
     words[len*num_label].weight = 0.0;
     fvec->factor =1.0;
     fvec->next = NULL;
+    fvec->userdefined = NULL;
     return (fvec);
 }
 
@@ -369,7 +387,14 @@ double      loss(LABEL y, LABEL ybar, STRUCT_LEARN_PARM *sparm)
   /* loss for correct label y and predicted label ybar. The loss for
      y==ybar has to be zero. sparm->loss_function is set with the -l option. */
 //    return diff_label_num(y.y,ybar.y)/ybar.y.size()*100;
-      return (y.y == ybar.y ? 0 : 100);
+
+    int len_y = 0 , len_ybar = 0;
+    for(len_y = 0; y.y[len_y] != -1; len_y++);
+    for(len_ybar = 0; ybar.y[len_ybar]; len_ybar++);
+    vector<int> vec_y(y.y, y.y+len_y);
+    vector<int> vec_ybar(ybar.y, ybar.y+len_ybar);
+
+    return (vec_y == vec_ybar ? 0 : 100);
 }
 
 int diff_label_num(vector<int> &y_truth, vector<int> &y_predict){

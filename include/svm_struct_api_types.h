@@ -55,21 +55,22 @@ using std::vector;
 */
 # define COMPACT_ROUNDING_THRESH 10E-15
 typedef struct p_word{
+    vector<double> val;
+    vector<int> idx;
+    int col_num;
+    int row_num;
+}PWORD;
 
-};
 typedef struct pattern {
   /* this defines the x-part of a training example, e.g. the structure
      for storing a natural language sentence in NLP parsing */
-  vector<vector<double>> val;
-  vector<int> idx;
-  int col_num;
-  int row_num;
+  PWORD *pword;
 } PATTERN;
 
 typedef struct label {
   /* this defines the y-part (the label) of a training example,
      e.g. the parse tree of the corresponding sentence. */
-  vector<int> y;
+  int *y;
 } LABEL;
 
 typedef struct structmodel {
