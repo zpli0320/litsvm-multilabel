@@ -395,6 +395,7 @@ double      loss(LABEL y, LABEL ybar, STRUCT_LEARN_PARM *sparm)
 
     int len_y = 0 , len_ybar = 0;
     for(len_y = 0; y.y[len_y] != -1; len_y++);
+
     for(len_ybar = 0; ybar.y[len_ybar]; len_ybar++);
     vector<int> vec_y(y.y, y.y+len_y);
     vector<int> vec_ybar(ybar.y, ybar.y+len_ybar);
