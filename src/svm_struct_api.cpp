@@ -209,9 +209,14 @@ LABEL       classify_struct_example(PATTERN x, STRUCTMODEL *model,
         vector<int> ybar;
         b2v(bitvec, ybar, num_labels);
         DOC doc;
+        int *p_label = new int[ybar.size()+1];
+        std::copy(ybar.begin(),ybar.end(),p_label);
+        p_label[ybar.size()] = -1;
+        y.y = p_label;
         doc.fvec = psi(x, y, model, sparm);
         score = classify_example(model->svm_model, &doc);
         free_svector(doc.fvec);
+        delete[] p_label;
         if ((bestscore < score) || (first)) {
             bestscore = score;
             bestlabel = ybar;
@@ -435,6 +440,10 @@ void        print_struct_testing_stats(SAMPLE sample, STRUCTMODEL *sm,
      evaluation (e.g. precision/recall) you might want. You can use
      the function eval_prediction to accumulate the necessary
      statistics for each prediction. */
+  teststats->precision = (double)teststats->pt_num/teststats->pre_num;
+  teststats->recall = (double)teststats->pt_num/teststats->gt_num;
+  teststats->f1_score = 2/(1/teststats->precision + 1/teststats->recall);
+  printf("\nF1: %lf", teststats->f1_score);
 }
 
 void        eval_prediction(long exnum, EXAMPLE ex, LABEL ypred, 
@@ -445,9 +454,20 @@ void        eval_prediction(long exnum, EXAMPLE ex, LABEL ypred,
      predicition matches the labeled example. It is called from
      svm_struct_classify. See also the function
      print_struct_testing_stats. */
-  if(exnum == 0) { /* this is the first time the function is
-		      called. So initialize the teststats */
-  }
+    if(exnum == 0) {
+        /* this is the first time the function is called. So initialize the teststats */
+        teststats->pre_num = 0;
+        teststats->pt_num = 0;
+        teststats->gt_num = 0;
+        teststats->precision = 0;
+        teststats->recall = 0;
+    }
+    vector<int> yt, yp;
+    for(int i = 0; ex.y.y[i] != -1; i++)  yt.push_back(ex.y.y[i]);
+    for(int i = 0; ypred.y[i] != -1; i++)  yp.push_back(ypred.y[i]);
+    teststats->pt_num += (yp.size()-diff_label_num(yt,yp));
+    teststats->pre_num += yp.size();
+    teststats->gt_num += yt.size();
 }
 
 void        write_struct_model(char *file, STRUCTMODEL *sm, 

@@ -117,6 +117,12 @@ typedef struct struct_test_stats {
   /* you can add variables for keeping statistics when evaluating the
      test predictions in svm_struct_classify. This can be used in the
      function eval_prediction and print_struct_testing_stats. */
+  int pt_num;
+  int gt_num;
+  int pre_num;
+  double precision;
+  double recall;
+  double f1_score;
 } STRUCT_TEST_STATS;
 
 #endif
