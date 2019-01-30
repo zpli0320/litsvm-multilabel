@@ -464,16 +464,12 @@ void        eval_prediction(long exnum, EXAMPLE ex, LABEL ypred,
         teststats->recall = 0;
     }
     vector<int> yt, yp;
-//    printf("\n ");
-//    for(int i = 0; ypred.y[i] != -1; i++) {
-//        yp.push_back(ypred.y[i]);
-//        printf("%d ", yp[i]);
-//    }
-//    printf("     gt: ");
-//    for(int i = 0; ex.y.y[i] != -1; i++) {
-//        yt.push_back(ex.y.y[i]);
-//        printf("%d ", yt[i]);
-//    }
+    for(int i = 0; ypred.y[i] != -1; i++) {
+        yp.push_back(ypred.y[i]);
+    }
+    for(int i = 0; ex.y.y[i] != -1; i++) {
+        yt.push_back(ex.y.y[i]);
+    }
     teststats->pt_num += (yp.size()-diff_label_num(yt,yp));
     teststats->pre_num += yp.size();
     teststats->gt_num += yt.size();
