@@ -464,8 +464,16 @@ void        eval_prediction(long exnum, EXAMPLE ex, LABEL ypred,
         teststats->recall = 0;
     }
     vector<int> yt, yp;
-    for(int i = 0; ex.y.y[i] != -1; i++)  yt.push_back(ex.y.y[i]);
-    for(int i = 0; ypred.y[i] != -1; i++)  yp.push_back(ypred.y[i]);
+    printf("\n ");
+    for(int i = 0; ypred.y[i] != -1; i++) {
+        yp.push_back(ypred.y[i]);
+        printf("%d ", yp[i]);
+    }
+    printf("     gt: ");
+    for(int i = 0; ex.y.y[i] != -1; i++) {
+        yt.push_back(ex.y.y[i]);
+        printf("%d ", yt[i]);
+    }
     teststats->pt_num += (yp.size()-diff_label_num(yt,yp));
     teststats->pre_num += yp.size();
     teststats->gt_num += yt.size();
@@ -540,7 +548,7 @@ STRUCTMODEL read_struct_model(char *file, STRUCT_LEARN_PARM *sparm)
     {
         sscanf(line+pos,"%lf",&num);
         words[i].weight = num;
-        words[i].wnum = i;
+        words[i].wnum = i+1;
         i++;
         while(line[pos]!=' ') pos++;
         while(line[pos]==' ') pos++;
@@ -549,13 +557,15 @@ STRUCTMODEL read_struct_model(char *file, STRUCT_LEARN_PARM *sparm)
     words[i].wnum=0;
     fclose(fl);
     model->kernel_parm.kernel_type = 0;
-    model->sv_num = 1;
+    model->sv_num = 2;
     model->b = 0;
     model->totwords = sizePsi;
     model->supvec = (DOC **)my_malloc(sizeof(DOC *)*model->sv_num);
-    model->supvec[i] = create_example(-1,0,0,0.0,
+    model->alpha = (double *)my_malloc(sizeof(double)*model->sv_num);
+    model->alpha[1] = 1;
+    model->supvec[1] = create_example(-1,0,0,0.0,
                                       create_svector(words,NULL,1.0));
-    model->supvec[i]->fvec->kernel_id=0;
+    model->supvec[1]->fvec->kernel_id=0;
     model->index=NULL;
     model->lin_weights=NULL;
     free(words);
